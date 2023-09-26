@@ -1,0 +1,259 @@
+// ↓ 取得したいGoogleカレンダーのアカウントを入力
+var calendarId = '';
+
+// colorID:カラー名
+//	0	:既定の色
+//	1	:ラベンダー
+//	2	:セージ
+//	3	:ブドウ
+//	4	:フラミンゴ
+//	5	:バナナ
+//	6	:ミカン
+//	7	:ピーコック
+//	8	:グラファイト
+//	9	:ブルーベリー
+//	10	:バジル
+//	11	:トマト
+// ↓ 取得したい予定に対応するcolorIDの値を入力
+var eventColorId = 0;
+
+// **************************************************************************
+
+// 現在の日付を取得
+var today = new Date();
+/// 報告書用スプレットシート作成
+function createWorkReport() {
+	// 月の名前を取得
+	var monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+	var currentMonth = monthNames[today.getMonth()];
+	var monthNamesNumber = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+
+	// スプレットシートの名称設定
+	var currentMonthNumber = (today.getFullYear()) + monthNamesNumber[today.getMonth()] + '_作業報告書';
+	var spreadsheet = SpreadsheetApp.create(currentMonthNumber + '作業報告書');
+
+	// スプレッドシートを指定
+	var sheet = spreadsheet.getActiveSheet();
+
+	// タイトル設定処理を実行
+	setTitle(sheet, currentMonth);
+
+	// 作成日設定処理を実行
+	setCreationDate(sheet, today);
+
+	// ヘッダ設定処理
+	setHeader(sheet);
+
+	// 今月の最初の日を取得
+	var firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+	// 今月の最後の日を取得
+	var lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+	// 指定したカレンダーから、今月の最初から最後までのイベントを取得
+	var events = CalendarApp.getCalendarById(calendarId).getEvents(firstDayOfMonth, lastDayOfMonth);
+	// イベントのサマリーを格納するオブジェクトを初期化
+	var eventSummaries = {};
+
+	// 今月の予定を取得
+	events.forEach(function (event) {
+		var eventName = event.getTitle();
+
+		// 除外対象
+		// 丸一日の予定を除外
+		if (event.isAllDayEvent()) {
+			return;
+		}
+		// Teams Meeting予定を除外
+		if (event.getGuestList(true).length > 0) {
+			return;
+		}
+		if (eventColorId === 0) {
+			// デフォルトカラーの予定のみ取得
+			if (event.getColor() >= 1 && event.getColor() <= 12) {
+				return;
+			}
+		}
+		else {
+			// 指定の色の予定のみ取得
+			if (event.getColor() !== String(eventColorId)) {
+				return;
+			}
+		}
+
+		// 予定の日付情報の取得
+		var eventDate = event.getStartTime().toLocaleDateString();
+		// 作業時間計算
+		var eventDuration = event.getEndTime() - event.getStartTime();
+
+		// 予定ごとにオブジェクトを作成
+		if (!eventSummaries[eventName]) {
+			eventSummaries[eventName] = {};
+		}
+		// 作業内容ごとの作業実施日時を取得し、作業時間を計算
+		if (!eventSummaries[eventName][eventDate]) {
+			eventSummaries[eventName][eventDate] = eventDuration;
+		}
+		else {
+			eventSummaries[eventName][eventDate] += eventDuration;
+		}
+	})
+
+	// 一意の日付を追跡するためのセットを初期化
+	var uniqueDates = new Set();
+
+	// データを書き込む最初の行を指定
+	var row = 4;
+
+	// 作業内容ごとに処理
+	for (var eventName in eventSummaries) {
+		// 作業日付と作業時間を取得
+		var eventDates = eventSummaries[eventName];
+		// 作業の合計時間を初期化
+		var eventTotalDuration = 0;
+
+		// 各日付に対する処理
+		for (var eventDate in eventDates) {
+			// 作業時間分単位に設定
+			var eventDurationInMilliseconds = eventDates[eventDate];
+			var eventDurationInMinutes = eventDurationInMilliseconds / (1000 * 60);
+			// 重複しない日付をセット
+			uniqueDates.add(eventDate);
+			// 作業の合計作業時間を計算
+			eventTotalDuration += eventDurationInMilliseconds;
+
+			// 作業内容リスト
+			sheet.getRange('A' + row).setValue(eventName);
+			// 作業日リスト
+			sheet.getRange('B' + row).setValue(eventDate);
+			// 作業時間リスト
+			sheet.getRange('C' + row).setValue(formatDuration(eventDurationInMinutes));
+			// コメントリスト（空白で初期化）
+			sheet.getRange('E' + row).setValue('');
+			row++;
+		}
+		// 作業内容ごとの最後の行に作業合計時間を書き込む
+		sheet.getRange('D' + (row - 1)).setValue(formatDuration(eventTotalDuration / (1000 * 60)));
+		row++;
+	}
+
+	// スプレットシート整形処理を実行
+	formatSheet(sheet, eventSummaries);
+
+	// セルの結合処理を実行
+	mergeCell(sheet, 1, 4);
+
+	// 作業報告書のURLを取得
+	var url = spreadsheet.getUrl();
+	// ログにURLを表示
+	Logger.log(currentMonth + '作業報告書のURL: ' + url);
+}
+
+
+/// タイトル設定処理
+function setTitle(sheet, currentMonth) {
+	// タイトル設定
+	var titleCell = sheet.getRange('A1');
+	// タイトルの名称設定
+	titleCell.setValue(currentMonth + '作業報告書');
+	// フォントサイズを12ptに設定
+	titleCell.setFontSize(12);
+	// フォントを太字に設定
+	titleCell.setFontWeight('bold');
+}
+
+/// 作成日設定処理
+function setCreationDate(sheet, today) {
+	// 作成日設定
+	var formattedDate = '作成日 ' + today.getFullYear() + '/' + (today.getMonth() + 1).toString().padStart(2, '0') + '/' + today.getDate().toString().padStart(2, '0');
+	// 日付を'yyyy/mm/dd'の形式に変換してセルに設定
+	sheet.getRange('E1').setValue(formattedDate);
+	// セルの水平方向の配置を右寄せに設定
+	sheet.getRange('E1').setHorizontalAlignment('right')
+}
+
+/// ヘッダ設定処理
+function setHeader(sheet) {
+	// ヘッダ設定
+	sheet.getRange('A3').setValue('作業内容');
+	sheet.getRange('B3').setValue('作業日');
+	sheet.getRange('C3').setValue('作業時間');
+	sheet.getRange('D3').setValue('作業時間合計');
+	sheet.getRange('E3').setValue('コメント');
+	sheet.getRange('A3:E3').setFontWeight('bold').setBackground('#D3D3D3');
+	sheet.getRange('A3:E3').setHorizontalAlignment('center');
+}
+
+/// 「時間:分」形式変換処理
+function formatDuration(minutes) {
+	var hours = Math.floor(minutes / 60);
+	var remainingMinutes = minutes % 60;
+	return hours + ':' + (remainingMinutes < 10 ? '0' : '') + remainingMinutes;
+}
+
+/// スプレットシート整形処理
+function formatSheet(sheet, eventSummaries) {
+	// 作業日のカラムを日付形式にフォーマット
+	sheet.getRange('B:B').setNumberFormat('yyyy/MM/dd');
+
+	// eventSummaries オブジェクトからイベント名の配列を取得
+	var eventNames = Object.keys(eventSummaries);
+
+	// 最大文字列長を初期化
+	var maxLength = 0;
+
+	// イベント名の中で最大文字列長を検索
+	for (var i = 0; i < eventNames.length; i++) {
+		var eventName = eventNames[i];
+		var length = eventName.length;
+		if (length > maxLength) {
+			maxLength = length;
+		}
+	}
+	// 最大文字列長に合わせて作業内容列の幅を設定
+	sheet.setColumnWidth(1, maxLength * 14);
+
+	// コメント列の幅を3倍に設定
+	sheet.setColumnWidth(5, sheet.getColumnWidth(5) * 3);
+
+	// リストすべての範囲を指定
+	var editDataRange = sheet.getRange(3, 1, sheet.getLastRow() - 1, 5);
+	// すべてのセルに枠線を追加
+	editDataRange.setBorder(true, true, true, true, true, true);
+	// セル設定の垂直方向の配置を中央に設定
+	editDataRange.setVerticalAlignment('middle');
+
+	// コメント列を除くリストすべての範囲を指定
+	var cellAlignment = sheet.getRange(3, 1, sheet.getLastRow() - 1, 4);
+	// セル設定の水平方向の配置を中央に設定
+	cellAlignment.setHorizontalAlignment('center');
+}
+
+/// セルの結合処理
+function mergeCell(sheet, column1, column4) {
+	// 結合範囲の指定と指定範囲内の[行数,予定名]の配列を作成
+	var data = sheet.getRange(4, column1, sheet.getLastRow() - 3, column4).getValues();
+	// 結合判定内のカレンダー予定の数
+	var numRows = data.length;
+	// 結合開始行
+	var startRow = 4;
+	// 結合終了行
+	var endRow = startRow;
+	// iの値がカレンダーの予定の異常になるまで繰り返す
+	for (var i = 1; i < numRows; i++) {
+		if (data[i][0] !== data[i - 1][0]) {
+			// 直前のセルと異なる値の場合、結合開始行と結合終了行の範囲で結合を実行
+			if (endRow > startRow) {
+				sheet.getRange(startRow, column1, endRow - startRow + 1, 1).merge();
+				sheet.getRange(startRow, column4, endRow - startRow + 1, 1).merge();
+			}
+			// 結合開始行を更新
+			startRow = i + 4;
+		}
+		// 結合開始行を更新
+		endRow = i + 4;
+	}
+	// 最後の範囲を結合
+	if (endRow > startRow) {
+		sheet.getRange(startRow, column1, endRow - startRow + 1, 1).merge();
+		sheet.getRange(startRow, column4, endRow - startRow + 1, 1).merge();
+	}
+}
