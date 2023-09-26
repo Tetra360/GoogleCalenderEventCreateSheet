@@ -1,0 +1,10 @@
+①Googleドライブログイン
+https://drive.google.com/drive/my-drive?hl=ja
+↓
+②フォルダーの好きな場所にGoogle Apps Scriptのファイルを作成
+↓
+③スクリプトを貼り付けてcalendarIdにカレンダーIDを入力
+↓
+④eventColorIdの値を抽出したい予定の色に設定
+↓
+⑤実行
