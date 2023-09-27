@@ -1,6 +1,10 @@
 // ↓ 取得したいGoogleカレンダーのアカウントを入力
 var calendarId = '';
 
+// ↓　Googleカレンダーの取得範囲の日付を入力
+var startDate = "yyyy/mm/dd";
+var endDate = "yyyy/mm/dd";
+
 // colorID:カラー名
 //	0	:既定の色
 //	1	:ラベンダー
@@ -45,11 +49,10 @@ function createWorkReport() {
 	setHeader(sheet);
 
 	// 今月の最初の日を取得
-	var firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-	// 今月の最後の日を取得
-	var lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+	var start = new Date(startDate);
+	var end = new Date(endDate);
 	// 指定したカレンダーから、今月の最初から最後までのイベントを取得
-	var events = CalendarApp.getCalendarById(calendarId).getEvents(firstDayOfMonth, lastDayOfMonth);
+	var events = CalendarApp.getCalendarById(calendarId).getEvents(start, end);
 	// イベントのサマリーを格納するオブジェクトを初期化
 	var eventSummaries = {};
 
