@@ -34,7 +34,7 @@ function createWorkReport() {
 
 	// スプレットシートの名称設定
 	var currentMonthNumber = (today.getFullYear()) + monthNamesNumber[today.getMonth()] + '_作業報告書';
-	var spreadsheet = SpreadsheetApp.create(currentMonthNumber + '作業報告書');
+	var spreadsheet = SpreadsheetApp.create(currentMonthNumber);
 
 	// スプレッドシートを指定
 	var sheet = spreadsheet.getActiveSheet();
