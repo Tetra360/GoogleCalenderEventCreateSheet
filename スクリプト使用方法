@@ -18,12 +18,12 @@ https://drive.google.com/drive/my-drive?hl=ja
 ↓
 スクリプトにコードをペースト
 ↓
-calendarIdにカレンダーIDを入力
+'calendarId'にカレンダーID（Googleアカウント名：◯◯◯◯@gmail.com）を入力
 ↓
-startDateに取得開始日を入力
-startDateに取得終了日を入力
+'startDate'に取得開始日を入力
+'endDate'に取得終了日を入力
 ↓
-eventColorIdの値を抽出したい予定の色に設定
+'eventColorId'の値を抽出したい予定の色に設定
 ↓
 実行
 ↓
